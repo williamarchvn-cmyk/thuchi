@@ -509,9 +509,9 @@ body.dragging .trash-hint.active{background:var(--chi);border-color:var(--chi);c
 
   /* ---------- Sheets ---------- */
   const editSheet = $('#editSheet'), seg = $('#seg');
-  const openSheet = w => { w.classList.add('open'); w.setAttribute('aria-hidden','false'); };
+  const openSheet = w => { w._openedAt = performance.now(); w.classList.add('open'); w.setAttribute('aria-hidden','false'); };
   const closeSheet = w => { w.classList.remove('open'); w.setAttribute('aria-hidden','true'); if (document.activeElement) document.activeElement.blur(); };
-  document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', () => closeSheet(s.parentNode)));
+  document.querySelectorAll('.scrim').forEach(s => s.addEventListener('click', () => { if (performance.now() - (s.parentNode._openedAt || 0) > 400) closeSheet(s.parentNode); }));
   document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeSheet(editSheet); } });
 
   let editId = null;
@@ -576,6 +576,13 @@ body.dragging .trash-hint.active{background:var(--chi);border-color:var(--chi);c
     });
   }
   const nextCardOf = el => { let n = el.nextElementSibling; while (n && (n === drag.card || !n.classList.contains('card'))) n = n.nextElementSibling; return n; };
+  // Sau khi nhấc tay, điện thoại bắn thêm 1 cú click vào vị trí ngón tay → chặn để không đóng bảng sửa
+  function swallowClick(){
+    const until = performance.now() + 600;
+    const h = e => { if (performance.now() < until) { e.stopPropagation(); e.preventDefault(); } window.removeEventListener('click', h, true); };
+    window.addEventListener('click', h, true);
+    setTimeout(() => window.removeEventListener('click', h, true), 600);
+  }
   function cancelPress(){ if (!press) return; clearTimeout(press.timer); press.card.classList.remove('pressing'); press = null; }
 
   cols.addEventListener('pointerdown', e => {
@@ -600,7 +607,7 @@ body.dragging .trash-hint.active{background:var(--chi);border-color:var(--chi);c
     if (drag) { endDrag(); return; }
     if (press) {
       const id = press.id, now = performance.now(); cancelPress();
-      if (lastTap && lastTap.id === id && now - lastTap.t < 350) { lastTap = null; openEdit(id); }
+      if (lastTap && lastTap.id === id && now - lastTap.t < 450) { lastTap = null; swallowClick(); openEdit(id); }
       else lastTap = {id, t:now};
     }
   });
